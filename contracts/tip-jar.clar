@@ -97,3 +97,56 @@
 (define-read-only (get-tip (tip-id uint))
   (map-get? tips tip-id)
 )
+
+;; Get creator's tip IDs
+(define-read-only (get-creator-tip-ids (creator principal))
+  (default-to (list) (map-get? creator-tip-ids creator))
+)
+
+;; Get tipper stats for a specific creator
+(define-read-only (get-tipper-stats (creator principal) (tipper principal))
+  (map-get? tipper-stats { creator: creator, tipper: tipper })
+)
+
+;; Get current tip counter
+(define-read-only (get-tip-counter)
+  (var-get tip-counter)
+)
+
+;; Get platform stats
+(define-read-only (get-platform-stats)
+  {
+    total-tips: (var-get total-tips-count),
+    total-volume: (var-get total-volume)
+  }
+)
+
+;; ========================================
+;; Public Functions
+;; ========================================
+
+;; Register as a creator
+(define-public (register-creator (display-name (string-utf8 50)))
+  (let
+    (
+      (caller tx-sender)
+    )
+    ;; Validations
+    (asserts! (is-none (map-get? creators caller)) err-already-registered)
+    (asserts! (> (len display-name) u0) err-invalid-name)
+    (asserts! (<= (len display-name) u50) err-invalid-name)
+    
+    ;; Store creator info
+    (map-set creators caller {
+      display-name: display-name,
+      registered-at: stacks-block-height,
+      total-received: u0,
+      tip-count: u0
+    })
+    
+    ;; Initialize empty tip ID list
+    (map-set creator-tip-ids caller (list))
+    
+    (ok true)
+  )
+)
