@@ -1,4 +1,4 @@
-;; sBTC Tip Jar Contract
+;; Tip Jar Contract
 ;; Allows creators to receive Bitcoin tips via sBTC
 
 ;; ========================================
