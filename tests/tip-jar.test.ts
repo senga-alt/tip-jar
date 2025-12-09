@@ -242,3 +242,126 @@ describe("Tip Jar Contract", () => {
       
       expect(result).toBeErr(Cl.uint(103)); // err-invalid-amount
     });
+
+    it("rejects tips to unregistered creators", () => {
+      const { result } = simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [
+          Cl.principal(creator2), // Not registered
+          Cl.uint(50000),
+          Cl.none()
+        ],
+        tipper1
+      );
+      
+      expect(result).toBeErr(Cl.uint(102)); // err-not-registered
+    });
+
+    it("rejects self-tipping", () => {
+      const { result } = simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [
+          Cl.principal(creator1),
+          Cl.uint(50000),
+          Cl.none()
+        ],
+        creator1
+      );
+      
+      expect(result).toBeErr(Cl.uint(100)); // err-unauthorized
+    });
+
+    it("rejects messages longer than 280 characters", () => {
+      const longMessage = "A".repeat(281);
+      
+      const { result } = simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [
+          Cl.principal(creator1),
+          Cl.uint(50000),
+          Cl.some(Cl.stringUtf8(longMessage))
+        ],
+        tipper1
+      );
+      
+      expect(result).toBeErr(Cl.uint(106)); // err-message-too-long
+    });
+
+    it("tracks multiple tips correctly", () => {
+      // Send first tip
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(50000), Cl.none()],
+        tipper1
+      );
+      
+      // Send second tip
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(30000), Cl.none()],
+        tipper1
+      );
+      
+      // Verify creator stats
+      const creatorInfo = simnet.callReadOnlyFn(
+        contractName,
+        "get-creator-info",
+        [Cl.principal(creator1)],
+        creator1
+      );
+      
+      const tuple = creatorInfo.result as any;
+      expect(tuple.value.data["total-received"]).toStrictEqual(Cl.uint(80000));
+      expect(tuple.value.data["tip-count"]).toStrictEqual(Cl.uint(2));
+    });
+  });
+
+  describe("Read-Only Functions", () => {
+    beforeEach(() => {
+      simnet.callPublicFn(
+        contractName,
+        "register-creator",
+        [Cl.stringUtf8("Test Creator")],
+        creator1
+      );
+      
+      simnet.callPublicFn(
+        sbtcToken,
+        "mint",
+        [Cl.uint(1000000), Cl.principal(tipper1)],
+        deployer
+      );
+    });
+
+    it("checks if a user is a creator", () => {
+      const { result: isCreator } = simnet.callReadOnlyFn(
+        contractName,
+        "is-creator",
+        [Cl.principal(creator1)],
+        tipper1
+      );
+      
+      expect(isCreator).toBeBool(true);
+      
+      const { result: notCreator } = simnet.callReadOnlyFn(
+        contractName,
+        "is-creator",
+        [Cl.principal(tipper1)],
+        tipper1
+      );
+      
+      expect(notCreator).toBeBool(false);
+    });
+
+    it("gets tip counter", () => {
+      const { result: initialCounter } = simnet.callReadOnlyFn(
+        contractName,
+        "get-tip-counter",
+        [],
+        tipper1
+      );
