@@ -150,3 +150,51 @@
     (ok true)
   )
 )
+
+;; Update creator display name
+(define-public (update-display-name (new-name (string-utf8 50)))
+  (let
+    (
+      (caller tx-sender)
+      (creator-data (unwrap! (map-get? creators caller) err-not-registered))
+    )
+    ;; Validations
+    (asserts! (> (len new-name) u0) err-invalid-name)
+    (asserts! (<= (len new-name) u50) err-invalid-name)
+    
+    ;; Update name
+    (map-set creators caller
+      (merge creator-data { display-name: new-name })
+    )
+    
+    (ok true)
+  )
+)
+
+;; Send a tip
+(define-public (send-tip 
+  (recipient principal) 
+  (amount uint) 
+  (message (optional (string-utf8 280))))
+  (let
+    (
+      (tip-id (+ (var-get tip-counter) u1))
+      (tipper tx-sender)
+      (creator-data (unwrap! (map-get? creators recipient) err-not-registered))
+      (current-tip-ids (default-to (list) (map-get? creator-tip-ids recipient)))
+      (tipper-data (default-to 
+        { total-tipped: u0, tip-count: u0, last-tip-at: u0 }
+        (map-get? tipper-stats { creator: recipient, tipper: tipper })
+      ))
+    )
+    
+    ;; Validations
+    (asserts! (>= amount min-tip-amount) err-invalid-amount)
+    (asserts! (<= amount max-tip-amount) err-invalid-amount)
+    (asserts! (not (is-eq tipper recipient)) err-unauthorized)
+    
+    ;; Validate message length if provided
+    (match message
+      msg (asserts! (<= (len msg) u280) err-message-too-long)
+      true
+    )
