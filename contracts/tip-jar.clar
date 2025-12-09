@@ -268,7 +268,7 @@
     )
     (if (> total-tips count)
       ;; Return last N tips
-      (get-tips-batch (unwrap-panic (slice? tip-ids (- total-tips count) total-tips)))
+      (get-tips-batch (unwrap-panic (as-max-len? (unwrap-panic (slice? tip-ids (- total-tips count) total-tips)) u20)))
       ;; Return all tips if less than count
       (get-tips-batch (unwrap-panic (as-max-len? tip-ids u20)))
     )
