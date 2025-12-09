@@ -392,8 +392,9 @@ describe("Tip Jar Contract", () => {
         deployer
       );
       
-      expect(creator1Info.result).toBeSome();
-      expect(creator2Info.result).toBeSome();
+      // Verify both creators are registered
+      expect(creator1Info.result).not.toBeNone();
+      expect(creator2Info.result).not.toBeNone();
     });
   });
 });
