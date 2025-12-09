@@ -49,3 +49,51 @@
     tip-count: uint
   }
 )
+
+;; Individual tip records
+(define-map tips
+  uint ;; tip-id
+  {
+    tipper: principal,
+    recipient: principal,
+    amount: uint,
+    message: (optional (string-utf8 280)),
+    timestamp: uint,
+    block-height: uint
+  }
+)
+
+;; Creator's tip history (list of tip IDs)
+(define-map creator-tip-ids
+  principal
+  (list 1000 uint)
+)
+
+;; Leaderboard - tracks top tippers per creator
+(define-map tipper-stats
+  { creator: principal, tipper: principal }
+  {
+    total-tipped: uint,
+    tip-count: uint,
+    last-tip-at: uint
+  }
+)
+
+;; ========================================
+;; Read-Only Functions
+;; ========================================
+
+;; Check if a principal is registered as creator
+(define-read-only (is-creator (user principal))
+  (is-some (map-get? creators user))
+)
+
+;; Get creator info
+(define-read-only (get-creator-info (creator principal))
+  (map-get? creators creator)
+)
+
+;; Get specific tip details
+(define-read-only (get-tip (tip-id uint))
+  (map-get? tips tip-id)
+)
