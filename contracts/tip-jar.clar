@@ -198,3 +198,79 @@
       msg (asserts! (<= (len msg) u280) err-message-too-long)
       true
     )
+
+    ;; Transfer sBTC from tipper to recipient
+    (try! (contract-call? sbtc-token transfer
+      amount
+      tipper
+      recipient
+      none
+    ))
+    
+    ;; Store tip record
+    (map-set tips tip-id {
+      tipper: tipper,
+      recipient: recipient,
+      amount: amount,
+      message: message,
+      timestamp: stacks-block-height,
+      block-height: stacks-block-height
+    })
+    
+    ;; Update tip counter
+    (var-set tip-counter tip-id)
+    
+    ;; Update creator stats
+    (map-set creators recipient
+      (merge creator-data {
+        total-received: (+ (get total-received creator-data) amount),
+        tip-count: (+ (get tip-count creator-data) u1)
+      })
+    )
+    
+    ;; Add tip ID to creator's list (max 1000 tips tracked)
+    (map-set creator-tip-ids recipient
+      (unwrap-panic (as-max-len? (append current-tip-ids tip-id) u1000))
+    )
+    
+    ;; Update tipper stats for this creator
+    (map-set tipper-stats { creator: recipient, tipper: tipper }
+      {
+        total-tipped: (+ (get total-tipped tipper-data) amount),
+        tip-count: (+ (get tip-count tipper-data) u1),
+        last-tip-at: stacks-block-height
+      }
+    )
+    
+    ;; Update platform stats
+    (var-set total-tips-count (+ (var-get total-tips-count) u1))
+    (var-set total-volume (+ (var-get total-volume) amount))
+    
+    (ok tip-id)
+  )
+)
+
+;; ========================================
+;; Helper Functions
+;; ========================================
+
+;; Get multiple tip details at once
+(define-read-only (get-tips-batch (tip-ids (list 20 uint)))
+  (map get-tip tip-ids)
+)
+
+;; Get recent tips for a creator (last N tips)
+(define-read-only (get-recent-tips (creator principal) (count uint))
+  (let
+    (
+      (tip-ids (get-creator-tip-ids creator))
+      (total-tips (len tip-ids))
+    )
+    (if (> total-tips count)
+      ;; Return last N tips
+      (get-tips-batch (unwrap-panic (slice? tip-ids (- total-tips count) total-tips)))
+      ;; Return all tips if less than count
+      (get-tips-batch (unwrap-panic (as-max-len? tip-ids u20)))
+    )
+  )
+)
