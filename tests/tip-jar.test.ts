@@ -365,7 +365,7 @@ describe("Tip Jar Contract", () => {
         [],
         tipper1
       );
-
+      
       expect(initialCounter).toBeUint(0);
       
       simnet.callPublicFn(
@@ -491,3 +491,110 @@ describe("Tip Jar Contract", () => {
       expect(list.list).toHaveLength(2);
     });
   });
+
+  describe("Multiple Creators and Tippers", () => {
+    beforeEach(() => {
+      // Register two creators
+      simnet.callPublicFn(
+        contractName,
+        "register-creator",
+        [Cl.stringUtf8("Creator One")],
+        creator1
+      );
+      
+      simnet.callPublicFn(
+        contractName,
+        "register-creator",
+        [Cl.stringUtf8("Creator Two")],
+        creator2
+      );
+      
+      // Mint sBTC to tippers
+      simnet.callPublicFn(
+        sbtcToken,
+        "mint",
+        [Cl.uint(1000000), Cl.principal(tipper1)],
+        deployer
+      );
+      
+      simnet.callPublicFn(
+        sbtcToken,
+        "mint",
+        [Cl.uint(1000000), Cl.principal(tipper2)],
+        deployer
+      );
+    });
+
+    it("tracks tips to different creators separately", () => {
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(50000), Cl.none()],
+        tipper1
+      );
+      
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator2), Cl.uint(30000), Cl.none()],
+        tipper1
+      );
+      
+      const creator1Info = simnet.callReadOnlyFn(
+        contractName,
+        "get-creator-info",
+        [Cl.principal(creator1)],
+        tipper1
+      );
+      
+      const creator2Info = simnet.callReadOnlyFn(
+        contractName,
+        "get-creator-info",
+        [Cl.principal(creator2)],
+        tipper1
+      );
+      
+      const tuple1 = creator1Info.result as any;
+      const tuple2 = creator2Info.result as any;
+      
+      expect(tuple1.value.data["total-received"]).toStrictEqual(Cl.uint(50000));
+      expect(tuple2.value.data["total-received"]).toStrictEqual(Cl.uint(30000));
+    });
+
+    it("tracks different tippers to same creator", () => {
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(50000), Cl.none()],
+        tipper1
+      );
+      
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(30000), Cl.none()],
+        tipper2
+      );
+      
+      const tipper1Stats = simnet.callReadOnlyFn(
+        contractName,
+        "get-tipper-stats",
+        [Cl.principal(creator1), Cl.principal(tipper1)],
+        tipper1
+      );
+      
+      const tipper2Stats = simnet.callReadOnlyFn(
+        contractName,
+        "get-tipper-stats",
+        [Cl.principal(creator1), Cl.principal(tipper2)],
+        tipper1
+      );
+      
+      const stats1 = tipper1Stats.result as any;
+      const stats2 = tipper2Stats.result as any;
+      
+      expect(stats1.value.data["total-tipped"]).toStrictEqual(Cl.uint(50000));
+      expect(stats2.value.data["total-tipped"]).toStrictEqual(Cl.uint(30000));
+    });
+  });
+});
