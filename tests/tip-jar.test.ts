@@ -365,3 +365,129 @@ describe("Tip Jar Contract", () => {
         [],
         tipper1
       );
+
+      expect(initialCounter).toBeUint(0);
+      
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(50000), Cl.none()],
+        tipper1
+      );
+      
+      const { result: afterTip } = simnet.callReadOnlyFn(
+        contractName,
+        "get-tip-counter",
+        [],
+        tipper1
+      );
+      
+      expect(afterTip).toBeUint(1);
+    });
+
+    it("gets platform stats", () => {
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(50000), Cl.none()],
+        tipper1
+      );
+      
+      const { result } = simnet.callReadOnlyFn(
+        contractName,
+        "get-platform-stats",
+        [],
+        tipper1
+      );
+      
+      expect(result).toBeTuple({
+        "total-tips": Cl.uint(1),
+        "total-volume": Cl.uint(50000)
+      });
+    });
+
+    it("gets tipper stats", () => {
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(50000), Cl.none()],
+        tipper1
+      );
+      
+      const { result } = simnet.callReadOnlyFn(
+        contractName,
+        "get-tipper-stats",
+        [Cl.principal(creator1), Cl.principal(tipper1)],
+        tipper1
+      );
+      
+      expect(result).toBeSome(
+        Cl.tuple({
+          "total-tipped": Cl.uint(50000),
+          "tip-count": Cl.uint(1),
+          "last-tip-at": Cl.uint(simnet.blockHeight)
+        })
+      );
+    });
+
+    it("gets creator tip IDs", () => {
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(50000), Cl.none()],
+        tipper1
+      );
+      
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(30000), Cl.none()],
+        tipper1
+      );
+      
+      const { result } = simnet.callReadOnlyFn(
+        contractName,
+        "get-creator-tip-ids",
+        [Cl.principal(creator1)],
+        tipper1
+      );
+      
+      expect(result).toBeList([Cl.uint(1), Cl.uint(2)]);
+    });
+
+    it("gets recent tips", () => {
+      // Send 3 tips
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(10000), Cl.none()],
+        tipper1
+      );
+      
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(20000), Cl.none()],
+        tipper1
+      );
+      
+      simnet.callPublicFn(
+        contractName,
+        "send-tip",
+        [Cl.principal(creator1), Cl.uint(30000), Cl.none()],
+        tipper1
+      );
+      
+      // Get last 2 tips
+      const { result } = simnet.callReadOnlyFn(
+        contractName,
+        "get-recent-tips",
+        [Cl.principal(creator1), Cl.uint(2)],
+        tipper1
+      );
+      
+      // Should return tips 2 and 3
+      const list = result as any;
+      expect(list.list).toHaveLength(2);
+    });
+  });
