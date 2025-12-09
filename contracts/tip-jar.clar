@@ -186,6 +186,13 @@
         { total-tipped: u0, tip-count: u0, last-tip-at: u0 }
         (map-get? tipper-stats { creator: recipient, tipper: tipper })
       ))
+      ;; Validate and sanitize message
+      (validated-message (match message
+        msg (if (<= (len msg) u280)
+              (some msg)
+              none)
+        none
+      ))
     )
     
     ;; Validations
@@ -193,11 +200,8 @@
     (asserts! (<= amount max-tip-amount) err-invalid-amount)
     (asserts! (not (is-eq tipper recipient)) err-unauthorized)
     
-    ;; Validate message length if provided
-    (match message
-      msg (asserts! (<= (len msg) u280) err-message-too-long)
-      true
-    )
+    ;; Ensure message validation passed
+    (asserts! (is-eq (is-some message) (is-some validated-message)) err-message-too-long)
 
     ;; Transfer sBTC from tipper to recipient
     (try! (contract-call? sbtc-token transfer
@@ -212,7 +216,7 @@
       tipper: tipper,
       recipient: recipient,
       amount: amount,
-      message: message,
+      message: validated-message,
       timestamp: stacks-block-height,
       block-height: stacks-block-height
     })
